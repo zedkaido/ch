@@ -3,13 +3,14 @@
 # ch (Clipboard History)
 # The trully suckless clipboard manager!
 #
-# `$0`: fzf 
-# `$0 clear`: Clear ch 
-# `$0 edit`: Edit ch
+# `$0`: Choose option interactivelly
+# `$0 copy`: Copy an entry from ch
 # `$0 append`: Append current clipboard value to history
-# `$0 fzf`: Copy specific entry from ch
 # `$0 delete`: Delete an entry from ch 
 # `$0 rmlast` Remove last entry from ch  
+# `$0 edit`: Edit ch manually
+# `$0 select`: Select an entry from ch
+# `$0 clear`: Delete all ch 
 
 CH_HISTORY_FILE="$HOME/.local/share/ch_history"
 OS=$(uname -s)
@@ -58,7 +59,20 @@ ch_delete() {
 			echo "Nothing selected :("
 		fi
 	fi
+}
 
+ch_rmlast() {
+	block_start=$(grep -n "^-#-#-#-" "$CH_HISTORY_FILE" | tail -n 2 | head -n 1 | cut -d: -f1)
+	if [ -n "$block_start" ]; then
+		block_end=$(wc -l < "$CH_HISTORY_FILE") 
+		case "$OS" in
+			Linux) sed -i "$((block_start - 1)),$block_end d" "$CH_HISTORY_FILE" ;;
+			Darwin) sed -i '' "$((block_start - 1)),$block_end d" "$CH_HISTORY_FILE" ;;
+			*) echo "Unsupported OS. Are you running on a potato?" ;;
+		esac
+	else
+		echo "Clipboard history is empty. Nothing to remove" 
+	fi
 }
 
 ch_edit() {
@@ -91,16 +105,17 @@ ch_help() {
 }
 
 ch_choose() {
-	choice=$(printf "copy\\nappend\\ndelete\\nedit\\nclear\\nselect\\nhelp" | fzf)
+	choice=$(printf "copy\\nappend\\ndelete\\nrmlast\\nedit\\nclear\\nselect\\nhelp" | fzf)
 	case "$choice" in
 		copy) ch_copy ;;
 		append) ch_append ;;
 		delete) ch_delete ;;
+		rmlast) ch_rmlast ;;
 		edit) ch_edit ;;
 		clear) ch_clear ;;
 		select) ch_select ;;
 		help) ch_help ;;
-		*) echo "You must provide an action (i.e. ch fzf)"
+		*) echo "Usage: $0 {copy|append|delete|rmlast|clear|...}" ;;
 	esac
 }
 
@@ -108,6 +123,7 @@ case "$1" in
 	copy) ch_copy ;;
 	append) ch_append ;;
 	delete) ch_delete ;;
+	rmlast) ch_rmlast ;;
 	edit) ch_edit ;;
 	clear) ch_clear ;;
 	select) ch_select ;;
