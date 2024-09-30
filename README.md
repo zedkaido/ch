@@ -10,7 +10,7 @@ ch copy # Copy an entry from ch
 ch append # Append current clipboard value to history
 ch delete # Delete an entry from ch 
 ch rmlast # Remove last entry from ch  
-ch edit: # Edit ch manually
+ch edit # Edit ch manually
 ch select # Select an entry from ch
 ch clear # Delete all ch 
 ```
