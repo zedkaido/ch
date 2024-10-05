@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/zsh
 
 # ch (Clipboard History)
 # The trully suckless clipboard manager!
@@ -76,7 +76,7 @@ ch_rmlast() {
 }
 
 ch_edit() {
-	nvim $CH_HISTORY_FILE
+	$EDITOR $CH_HISTORY_FILE
 }
 
 ch_clear() {
