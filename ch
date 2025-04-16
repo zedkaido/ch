@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 
 # ch (Clipboard History)
 # The trully suckless clipboard manager!
@@ -11,6 +11,8 @@
 # `$0 edit`: Edit ch manually
 # `$0 select`: Select an entry from ch
 # `$0 clear`: Delete all ch 
+
+fzf() { command fzf --no-color "$@"; }
 
 CH_HISTORY_FILE="$HOME/.local/share/ch_history"
 OS=$(uname -s)
