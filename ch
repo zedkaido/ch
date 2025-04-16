@@ -12,6 +12,8 @@
 # `$0 select`: Select an entry from ch
 # `$0 clear`: Delete all ch 
 
+alias fzf="fzf --no-color"
+
 CH_HISTORY_FILE="$HOME/.local/share/ch_history"
 OS=$(uname -s)
 
