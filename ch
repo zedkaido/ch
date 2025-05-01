@@ -78,7 +78,7 @@ ch_rmlast() {
 }
 
 ch_edit() {
-	$EDITOR $CH_HISTORY_FILE
+	vim "$CH_HISTORY_FILE"
 }
 
 ch_clear() {
