@@ -20,8 +20,8 @@ OS=$(uname -s)
 ch_copy() {
 	selection=$(ch_select)
 	case "$OS" in 
-		Linux) echo "$selection" | xclip -selection clipboard ;;
-		Darwin) echo "$selection" | pbcopy ;;
+		Linux) printf %s "$selection" | xclip -selection clipboard ;;
+		Darwin) printf %s "$selection" | pbcopy ;;
 		*) echo "Unsupported OS. Are you running on a potato?" ;;
 	esac
 }
