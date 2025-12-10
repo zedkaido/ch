@@ -1,134 +1,144 @@
 #!/usr/bin/env bash
 
-# ch (Clipboard History)
-# The trully suckless clipboard manager!
-#
-# `$0`: Choose option interactivelly
-# `$0 copy`: Copy an entry from ch
-# `$0 append`: Append current clipboard value to history
-# `$0 delete`: Delete an entry from ch 
-# `$0 rmlast` Remove last entry from ch  
-# `$0 edit`: Edit ch manually
-# `$0 select`: Select an entry from ch
-# `$0 clear`: Delete all ch 
+chhelp() {
+	cat << 'EOF'
+Usage: ch [commands]
 
-fzf() { command fzf --no-color "$@"; }
+Description: A ch(clipboard history) you are in control of.
 
-CH_HISTORY_FILE="$HOME/.local/share/ch_history"
+Commands:
+   -a, add
+   -c, copy
+   -d, delete, del
+   -s, select
+   -e, edit 
+   -clear [(clip)board|(hist)ory]
+
+Dependencies: fzf, fzy, rg
+EOF
+}
+ 
+fzf() { command fzf --no-color "$@" ; }
+
 OS=$(uname -s)
 
-ch_copy() {
-	selection=$(ch_select)
-	case "$OS" in 
-		Linux) printf %s "$selection" | xclip -selection clipboard ;;
-		Darwin) printf %s "$selection" | pbcopy ;;
-		*) echo "Unsupported OS. Are you running on a potato?" ;;
-	esac
-}
+chfile=$HOME/.local/share/ch.txt
+if [ ! -f "$chfile" ]; then
+	mkdir -p $HOME/.local/share
+	touch $HOME/.local/share/ch.txt
+fi
 
-ch_append() {
-	clipboard_content=""
+chadd() {
+	clipboard=""
 	case "$OS" in
-		Linux) clipboard_content=$(xclip -selection clipboard -o) ;;
-		Darwin) clipboard_content=$(pbpaste) ;;
+		Linux) clipboard=$(xclip -selection clipboard -o) ;;
+		Darwin) clipboard=$(pbpaste) ;;
 		*) echo "Unsupported OS. Are you running on a potato?" ;;
 	esac
-	printf "\n-#-#-#-\n%s\n-#-#-#-\n" "$clipboard_content" >> ~/.local/share/ch_history
+	printf "||CLIP||{\n%s\n}||CLIP||\n" "$clipboard" | col -b >> $chfile
 }
 
-ch_delete() {
-	selection=$(ch_select)
-	safe_selection=$(printf '%q\n' "$selection")
-	line=$(grep --line-number --text "$selection" "$CH_HISTORY_FILE" | fzf --reverse | cut -d: -f1)
-	if [ -n "$line" ]; then
-		line_number=$(echo "$line" | cut -d: -f1)
-		if [ -n "$line_number" ]; then
-			block_start=$(sed -n "1,${line_number}p" "$CH_HISTORY_FILE" | grep -n "^-#-#-#-" | tail -n 1 | cut -d: -f1)
-			block_end=$(sed -n "$((block_start + 1)),\$p" "$CH_HISTORY_FILE" | grep -n "^-#-#-#-" | head -n 1 | cut -d: -f1)
-
-			if [ -n "$block_end" ]; then
-				block_end=$((block_start + block_end))
-			else
-				block_end=$(wc -l < "$CH_HISTORY_FILE")
-			fi
-			case "$OS" in
-				Linux) sed -i "$((block_start - 1)),${block_end}d" "${CH_HISTORY_FILE}" ;;
-				Darwin) sed -i '' "$((block_start - 1)),${block_end}d" "${CH_HISTORY_FILE}" ;;
-				*) echo "Unsupported OS. Are you running on a potato?" ;;
-			esac
-			echo "Deleted :$block_start-:$block_end from $CH_HISTORY_FILE"
-		else
-			echo "Nothing selected :("
-		fi
-	fi
+selCLIP() {
+	perl -0777 -ne 'while (/\|\|CLIP\|\|\{\n?(.*?)\n?\}\|\|CLIP\|\|/gs) { print $1 . "\0" }' $chfile| \
+		fzf --read0 --layout=reverse \
+			--prompt="$1" --query="$2" \
+			--preview 'echo {}'
 }
 
-ch_rmlast() {
-	block_start=$(grep -n "^-#-#-#-" "$CH_HISTORY_FILE" | tail -n 2 | head -n 1 | cut -d: -f1)
-	if [ -n "$block_start" ]; then
-		block_end=$(wc -l < "$CH_HISTORY_FILE") 
-		case "$OS" in
-			Linux) sed -i "$((block_start - 1)),$block_end d" "$CH_HISTORY_FILE" ;;
-			Darwin) sed -i '' "$((block_start - 1)),$block_end d" "$CH_HISTORY_FILE" ;;
-			*) echo "Unsupported OS. Are you running on a potato?" ;;
+selCLIPblock() {
+	perl -0777 -ne 'while (/\|\|CLIP\|\|\{.*?\}\|\|CLIP\|\|/gs) { print $& . "\0" }' $chfile | \
+		fzf --read0 --layout=reverse \
+			--prompt="$1" --query="$2" \
+			--preview 'echo {}'
+}
+
+chcopy() {
+	chfilecheck
+	s=$(selCLIP "COPY > ")
+	echo "$s"
+	case "$OS" in 
+		Linux) printf %s "$s" | xclip -selection clipboard ;;
+		Darwin) printf %s "$s" | pbcopy ;;
+		*) echo "unsupported OS. are you running on a potato?" ;;
+	esac
+}
+
+chdel() {
+	chfilecheck
+	sel=$(selCLIPblock "DELETE > ")
+	if [ -z "$sel" ]; then echo "deletion cancelled." exit 0 ; fi
+
+	lines=$(rg -U -F "$sel" -n "$chfile" | awk -F : '{ print $1 }')
+	beg=$(echo "$lines" | head -n1)
+	end=$(echo "$lines" | tail -n1)
+	sed -i '' "$beg,$end d" "$chfile" 
+}
+
+chsel() {
+	chfilecheck
+	s=$(selCLIP "$1" "$2" )
+	echo "$s"
+}
+
+chclear() {
+	clclipboard() { printf "" | pbcopy ; }
+	clhistory() { : > $chfile ;}
+
+	clfzy() {
+		choice=$(printf "clipboard\\nhistory" | fzy --prompt "CLEAR > ")
+		case "$choice" in
+			clipboard) clclipboard ;;
+			history) clhistory ;;
+			*) echo "nothing cleared." ;;
 		esac
-	else
-		echo "Clipboard history is empty. Nothing to remove" 
+	}
+
+	case "$1" in
+		clipboard|clip) cclipboard ;;
+		history|hist) clhistory ;;
+		*) clfzy ;;
+	esac
+}
+
+chedit() { $EDITOR "$chfile" ; }
+
+chfilecheck() {
+	if [ $(head -2 $chfile | wc -l) -lt 2 ]; then
+		cat << EOF
++---------------------------+
+|  (ch) clipboard history   |
+|---------------------------|
+|                           |
+|      < no ch clips >      |
+|                           |
++---------------------------+
+EOF
+	   	read -p "press any key to exit..." ;
+		exit 0 ; 
 	fi
 }
 
-ch_edit() {
-	vim "$CH_HISTORY_FILE"
-}
-
-ch_clear() {
-	echo "" > $CH_HISTORY_FILE
-}
-
-ch_select() {
-	ch_selection=$(awk '
-		/^-#-#-#-$/ {
-			if (content) {
-				gsub(/^\s+|\s+$/, "", content);
-				gsub(/\n/, "\\n", content);
-				print content;
-				content = "";
-			}
-			next;
-		} { content = content (content ? "\\n" : "") $0 }
-		' "$CH_HISTORY_FILE" | fzf --reverse --tac --preview 'echo -e "{}"'
-	)
-	# selection=$(echo "$ch_selection" | sed 's/\\n/\n/g')
-	echo "$ch_selection"
-}
-
-ch_help() {
-	echo "Visit $CH_HISTORY_FILE for help"
-}
-
-ch_choose() {
-	choice=$(printf "copy\\nappend\\ndelete\\nrmlast\\nedit\\nclear\\nselect\\nhelp" | fzf)
+chfzy() {
+	choice=$(printf "copy\\nadd\\ndelete\\nselect\\nclear\\nedit\\nhelp" | fzy)
 	case "$choice" in
-		copy) ch_copy ;;
-		append) ch_append ;;
-		delete) ch_delete ;;
-		rmlast) ch_rmlast ;;
-		edit) ch_edit ;;
-		clear) ch_clear ;;
-		select) ch_select ;;
-		help) ch_help ;;
-		*) echo "Usage: $0 {copy|append|delete|rmlast|clear|...}" ;;
+		copy) chcopy ;;
+		add) chadd ;;
+		delete) chdel ;;
+		select) chsel "${2:-SELECT > }" "$3" ;;
+		clear) chclear ;;
+		edit) chedit ;;
+		help) chhelp ;;
+		*) echo "usage: $0 {(-c)opy|(-a)dd|(-d)elete|(-s)elect|(-c)lear|(-e)dit|(-h)elp}" ;;
 	esac
 }
 
 case "$1" in
-	copy) ch_copy ;;
-	append) ch_append ;;
-	delete) ch_delete ;;
-	rmlast) ch_rmlast ;;
-	edit) ch_edit ;;
-	clear) ch_clear ;;
-	select) ch_select ;;
-	help) ch_help ;;
-	*) ch_choose ;; 
+	add|-a) chadd ;;
+	copy|-c) chcopy ;;
+	delete|del|-d) chdel ;;
+	select|sel|-s) chsel "${2:-SELECT > }" "$3" ;;
+	clear|-cl) chclear "$2";;
+	edit|ed|-e) chedit ;;
+	help|-h|--help) chhelp ;;
+	*) chfzy ;;
 esac

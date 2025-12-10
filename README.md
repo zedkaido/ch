@@ -1,18 +1,22 @@
 # `ch` AKA. Clipboard History
 
-> The trully suckless **clipboard manager**!
-
-Just put `ch` in your `~/.local/bin` folder and profit!
-
 ```
-ch # Choose an option interactivelly
-ch copy # Copy an entry from ch
-ch append # Append current clipboard value to history
-ch delete # Delete an entry from ch 
-ch rmlast # Remove last entry from ch  
-ch edit # Edit ch manually
-ch select # Select an entry from ch
-ch clear # Delete all ch 
+Usage: ch [commands]
+
+Description: A ch(clipboard history) you are in control of.
+
+Commands:
+   -a, add
+   -c, copy
+   -d, delete, del
+   -s, select
+   -e, edit 
+   -clear [(clip)board|(hist)ory]
+
+Dependencies: fzf, fzy, rg
 ```
 
-For a config example, visit <https://github.com/zedkaido/dotfiles>
+## Installation
+```
+cp ch .local/bin/ch
+```
